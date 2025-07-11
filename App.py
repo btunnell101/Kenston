@@ -1,5 +1,10 @@
 import streamlit as st
-st.set_page_config(page_title="Clover Sales App", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(\
+    page_title="Clover Sales App",\
+    page_icon="📊",\
+    layout="centered",\
+    initial_sidebar_state="collapsed"\
+)
 
 import streamlit as st
 import pandas as pd
