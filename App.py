@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
 st.set_page_config(
     page_title="Clover Sales App",
@@ -49,23 +48,27 @@ def process_data(uploaded_file):
         transactions = emp_df['order'].nunique()
         bundle_items = emp_df['is_bundle'].sum()
         promo_items = emp_df['is_promo'].sum()
-        # "Kickers" = promo cases
         promo_cases = promo_items / 6
-        # Total cases = bundle items + promo cases + extra cases (old logic kept if needed)
         high_value_orders = emp_df.groupby('order', group_keys=False)[['is_bundle', 'item_net_amount']].apply(
             lambda group: group['is_bundle'].any() and group['item_net_amount'].sum() >= 800
         )
         extra_cases = high_value_orders.sum()
         total_cases = bundle_items + promo_cases + extra_cases
+        revenue = emp_df.drop_duplicates('order')['order_amount'].sum()
 
         summary.append({
             "Rep Name": employee,
+            "Revenue": revenue,
             "Cases Total": round(total_cases, 2),
             "Kickers": round(promo_cases, 2),
             "Total Orders": transactions
         })
 
     return pd.DataFrame(summary)
+
+def format_currency(val):
+    """Format number as currency"""
+    return f"${val:,.2f}"
 
 uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
@@ -75,9 +78,12 @@ if uploaded_file:
     if df_summary.empty:
         st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount")
     else:
-        st.dataframe(df_summary, use_container_width=True)
+        # Format Revenue as currency for display
+        df_display = df_summary.copy()
+        df_display["Revenue"] = df_display["Revenue"].apply(format_currency)
+        st.dataframe(df_display, use_container_width=True)
 
-        # Export as CSV button
+        # Export as CSV (without currency formatting, for easy data use)
         csv = df_summary.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="Export as CSV",
@@ -87,4 +93,3 @@ if uploaded_file:
         )
 else:
     st.warning("No file uploaded yet.")
-
