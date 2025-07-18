@@ -13,7 +13,7 @@ st.info("Upload a CSV file below. This app is optimized for mobile devices. If y
 
 def process_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
-    df.columns = [col.lower().strip() for col in df.columns]  # Standardize columns
+    df.columns = [col.lower().strip() for col in df.columns]
 
     BUNDLE_SKUS = {
         "chicken_bundle": 1,
@@ -22,7 +22,7 @@ def process_data(uploaded_file):
         "prime_bundle": 1,
         "seafood_bundle": 1
     }
-    KICKER_KEYWORDS = ["ribeye box", "crab legs box", "shrimp specialty box"]
+    PROMO_KEYWORDS = ["ribeye", "shrimp", "crab"]
     BUNDLE_NAMES = [
         "chicken bundle", "natural choice", "pork bundle",
         "prime bundle", "seafood bundle"
@@ -35,29 +35,32 @@ def process_data(uploaded_file):
     df['item_net_amount'] = pd.to_numeric(df['item_net_amount'], errors='coerce').fillna(0)
     df['order_amount'] = pd.to_numeric(df['order_amount'], errors='coerce').fillna(0)
 
-    # Bundle logic
     df['is_bundle'] = df.apply(
         lambda row: row['sku'] in BUNDLE_SKUS or any(name in row['item_name'] for name in BUNDLE_NAMES), axis=1
+    )
+    df['is_promo'] = df.apply(
+        lambda row: any(x in row['item_name'] for x in PROMO_KEYWORDS), axis=1
     )
 
     summary = []
     for employee, emp_df in df.groupby('employee'):
         transactions = emp_df['order'].nunique()
         bundle_items = emp_df['is_bundle'].sum()
-        # Count kicker items by keyword
-        kicker_items = emp_df['item_name'].apply(lambda x: any(kicker in x for kicker in KICKER_KEYWORDS)).sum()
+        promo_items = emp_df['is_promo'].sum()
+        # Cases from kickers (every 6 = 1 case, plus remainder as fraction)
+        kicker_cases = promo_items / 6
         high_value_orders = emp_df.groupby('order', group_keys=False)[['is_bundle', 'item_net_amount']].apply(
             lambda group: group['is_bundle'].any() and group['item_net_amount'].sum() >= 800
         )
         extra_cases = high_value_orders.sum()
-        total_cases = bundle_items + extra_cases
+        total_cases = round(bundle_items + extra_cases + kicker_cases, 1)  # one decimal
         revenue = emp_df.drop_duplicates('order')['order_amount'].sum()
 
         summary.append({
             "Rep Name": employee,
             "Revenue": revenue,
-            "Cases Total": round(total_cases, 2),
-            "Kickers": kicker_items,
+            "Cases Total": total_cases,
+            "Kickers": round(kicker_cases, 1),
             "Total Orders": transactions
         })
 
@@ -90,4 +93,3 @@ if uploaded_file:
         )
 else:
     st.warning("No file uploaded yet.")
-
