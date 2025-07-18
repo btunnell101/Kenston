@@ -46,31 +46,23 @@ def process_data(uploaded_file):
 
     summary = []
     for employee, emp_df in df.groupby('employee'):
-        all_items_count = len(emp_df)
         transactions = emp_df['order'].nunique()
         bundle_items = emp_df['is_bundle'].sum()
         promo_items = emp_df['is_promo'].sum()
-        revenue = emp_df.drop_duplicates('order')['order_amount'].sum()
+        # "Kickers" = promo cases
+        promo_cases = promo_items / 6
+        # Total cases = bundle items + promo cases + extra cases (old logic kept if needed)
         high_value_orders = emp_df.groupby('order', group_keys=False)[['is_bundle', 'item_net_amount']].apply(
             lambda group: group['is_bundle'].any() and group['item_net_amount'].sum() >= 800
         )
         extra_cases = high_value_orders.sum()
-        promo_cases = promo_items / 6
         total_cases = bundle_items + promo_cases + extra_cases
-        avg_case_per_tx = round(total_cases / transactions, 2) if transactions > 0 else 0
-        rph = revenue / HOURS_PER_EVENT if HOURS_PER_EVENT else 0
 
         summary.append({
-            "Employee": employee,
-            "Revenue": revenue,
-            "Total Transactions": transactions,
-            "All Items": all_items_count,
-            "Bundle Items": bundle_items,
-            "Promo Items": promo_items,
-            "Promo Cases": round(promo_cases, 2),
-            "Total Cases": round(total_cases, 2),
-            "Avg Case Per Transaction": avg_case_per_tx,
-            "RPH": rph
+            "Rep Name": employee,
+            "Cases Total": round(total_cases, 2),
+            "Kickers": round(promo_cases, 2),
+            "Total Orders": transactions
         })
 
     return pd.DataFrame(summary)
@@ -83,16 +75,16 @@ if uploaded_file:
     if df_summary.empty:
         st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount")
     else:
-        st.dataframe(df_summary)
-        st.header("RPH by Employee")
-        fig, ax = plt.subplots()
-        ax.bar(df_summary['Employee'], df_summary['RPH'], color='skyblue')
-        ax.set_ylabel('Revenue per Hour (RPH)')
-        ax.set_xlabel('Employee')
-        ax.set_title('RPH by Employee')
-        plt.xticks(rotation=30, ha='right', fontsize=11)
-        for i, v in enumerate(df_summary['RPH']):
-            ax.text(i, v + max(df_summary['RPH']) * 0.01, f"${v:,.2f}", ha='center', fontsize=9, fontweight='bold')
-        st.pyplot(fig)
+        st.dataframe(df_summary, use_container_width=True)
+
+        # Export as CSV button
+        csv = df_summary.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Export as CSV",
+            data=csv,
+            file_name='clover_sales_summary.csv',
+            mime='text/csv'
+        )
 else:
     st.warning("No file uploaded yet.")
+
