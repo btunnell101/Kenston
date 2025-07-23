@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import math
 
 st.set_page_config(
     page_title="Clover Sales App",
@@ -47,20 +48,22 @@ def process_data(uploaded_file):
         transactions = emp_df['order'].nunique()
         bundle_items = emp_df['is_bundle'].sum()
         promo_items = emp_df['is_promo'].sum()
-        # Cases from kickers (every 6 = 1 case, plus remainder as fraction)
-        kicker_cases = promo_items / 6
+        kicker_by_item = round(promo_items / 6, 2)   # decimal, two places
+        kicker_total = round(kicker_by_item * 6)     # kicker as total items, rounded to whole number
         high_value_orders = emp_df.groupby('order', group_keys=False)[['is_bundle', 'item_net_amount']].apply(
             lambda group: group['is_bundle'].any() and group['item_net_amount'].sum() >= 800
         )
         extra_cases = high_value_orders.sum()
-        total_cases = round(bundle_items + extra_cases + kicker_cases, 1)  # one decimal
+        # Cases total is bundle + extra + kicker_by_item, rounded DOWN to nearest int
+        cases_total = math.floor(bundle_items + extra_cases + kicker_by_item)
         revenue = emp_df.drop_duplicates('order')['order_amount'].sum()
 
         summary.append({
             "Rep Name": employee,
             "Revenue": revenue,
-            "Cases Total": total_cases,
-            "Kickers": round(kicker_cases, 1),
+            "Cases Total": cases_total,
+            "Kicker by Item": f"{kicker_by_item:.2f}",
+            "Kicker Total": kicker_total,
             "Total Orders": transactions
         })
 
@@ -83,8 +86,9 @@ if uploaded_file:
         df_display["Revenue"] = df_display["Revenue"].apply(format_currency)
         st.dataframe(df_display, use_container_width=True)
 
-        # Export as CSV (no currency formatting for numbers)
-        csv = df_summary.to_csv(index=False).encode('utf-8')
+        # Export as CSV (remove dollar sign for CSV)
+        df_export = df_summary.copy()
+        csv = df_export.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="Export as CSV",
             data=csv,
