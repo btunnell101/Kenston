@@ -1,3 +1,17 @@
+import streamlit as st
+import pandas as pd
+import math
+
+st.set_page_config(
+    page_title="Clover Sales App",
+    page_icon="📊",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
+st.title("Clover Box-Adjusted Sales Summary")
+st.info("Upload a CSV file below. This app is optimized for mobile devices. If you do not see the upload button, please refresh your browser.")
+
 def process_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
     df.columns = [col.lower().strip() for col in df.columns]
@@ -58,3 +72,32 @@ def process_data(uploaded_file):
         })
 
     return pd.DataFrame(summary)
+
+def format_currency(val):
+    """Format number as currency"""
+    return f"${val:,.2f}"
+
+uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+
+if uploaded_file:
+    st.success("File uploaded successfully!")
+    df_summary = process_data(uploaded_file)
+    if df_summary.empty:
+        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, order_tip_amount")
+    else:
+        # Format Revenue as currency for display
+        df_display = df_summary.copy()
+        df_display["Revenue"] = df_display["Revenue"].apply(format_currency)
+        st.dataframe(df_display, use_container_width=True)
+
+        # Export as CSV (remove currency formatting for export)
+        df_export = df_summary.copy()
+        csv = df_export.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Export as CSV",
+            data=csv,
+            file_name='clover_sales_summary.csv',
+            mime='text/csv'
+        )
+else:
+    st.warning("No file uploaded yet.")
