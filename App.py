@@ -59,8 +59,8 @@ def process_data(uploaded_file):
         cases_total = math.floor(bundle_items + extra_cases + kicker_by_item)
 
         gross_revenue = emp_df.drop_duplicates('order')['order_amount'].sum()
-        tips = emp_df.drop_duplicates('order')['order_tip_amount'].sum() if 'order_tip_amount' in emp_df.columns else 0
-        revenue = gross_revenue - tips
+        # tips = emp_df.drop_duplicates('order')['order_tip_amount'].sum() if 'order_tip_amount' in emp_df.columns else 0
+        revenue = gross_revenue  # No longer subtracting tips
 
         summary.append({
             "Rep Name": employee,
