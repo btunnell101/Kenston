@@ -35,6 +35,17 @@ def process_data(uploaded_file):
     df['order'] = df['order'].fillna("Unknown")
     df['item_net_amount'] = pd.to_numeric(df['item_net_amount'], errors='coerce').fillna(0)
     df['order_amount'] = pd.to_numeric(df['order_amount'], errors='coerce').fillna(0)
+
+    # New: handle Order_Tot2 logic
+    # Make sure to use the exact lowercase column name from your file for 'Order_Tot2'
+    if 'order_tot2' in df.columns:
+        df['order_tot2'] = pd.to_numeric(df['order_tot2'], errors='coerce').fillna(0)
+        df['revenue_amt'] = df.apply(
+            lambda row: row['order_tot2'] if row['order_tot2'] != 0 else row['order_amount'], axis=1
+        )
+    else:
+        df['revenue_amt'] = df['order_amount']
+
     if 'order_tip_amount' in df.columns:
         df['order_tip_amount'] = pd.to_numeric(df['order_tip_amount'], errors='coerce').fillna(0)
 
@@ -58,9 +69,9 @@ def process_data(uploaded_file):
         extra_cases = high_value_orders.sum()
         cases_total = math.floor(bundle_items + extra_cases + kicker_by_item)
 
-        gross_revenue = emp_df.drop_duplicates('order')['order_amount'].sum()
-        # tips = emp_df.drop_duplicates('order')['order_tip_amount'].sum() if 'order_tip_amount' in emp_df.columns else 0
-        revenue = gross_revenue  # No longer subtracting tips
+        # Use the new revenue calculation
+        gross_revenue = emp_df.drop_duplicates('order')['revenue_amt'].sum()
+        revenue = gross_revenue
 
         summary.append({
             "Rep Name": employee,
@@ -83,7 +94,7 @@ if uploaded_file:
     st.success("File uploaded successfully!")
     df_summary = process_data(uploaded_file)
     if df_summary.empty:
-        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, order_tip_amount")
+        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, order_tot2, order_tip_amount")
     else:
         # Format Revenue as currency for display
         df_display = df_summary.copy()
