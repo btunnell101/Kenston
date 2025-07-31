@@ -36,8 +36,7 @@ def process_data(uploaded_file):
     df['item_net_amount'] = pd.to_numeric(df['item_net_amount'], errors='coerce').fillna(0)
     df['order_amount'] = pd.to_numeric(df['order_amount'], errors='coerce').fillna(0)
 
-    # New: handle Order_Tot2 logic
-    # Make sure to use the exact lowercase column name from your file for 'Order_Tot2'
+    # Order_Tot2 revenue logic
     if 'order_tot2' in df.columns:
         df['order_tot2'] = pd.to_numeric(df['order_tot2'], errors='coerce').fillna(0)
         df['revenue_amt'] = df.apply(
@@ -49,8 +48,12 @@ def process_data(uploaded_file):
     if 'order_tip_amount' in df.columns:
         df['order_tip_amount'] = pd.to_numeric(df['order_tip_amount'], errors='coerce').fillna(0)
 
+    # Updated bundle logic to exclude freezer gift cards
     df['is_bundle'] = df.apply(
-        lambda row: row['sku'] in BUNDLE_SKUS or any(name in row['item_name'] for name in BUNDLE_NAMES), axis=1
+        lambda row: (
+            ("freezer gift card" not in row['item_name']) and
+            (row['sku'] in BUNDLE_SKUS or any(name in row['item_name'] for name in BUNDLE_NAMES))
+        ), axis=1
     )
     df['is_promo'] = df.apply(
         lambda row: any(x in row['item_name'] for x in PROMO_KEYWORDS), axis=1
@@ -69,7 +72,6 @@ def process_data(uploaded_file):
         extra_cases = high_value_orders.sum()
         cases_total = math.floor(bundle_items + extra_cases + kicker_by_item)
 
-        # Use the new revenue calculation
         gross_revenue = emp_df.drop_duplicates('order')['revenue_amt'].sum()
         revenue = gross_revenue
 
