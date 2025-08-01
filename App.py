@@ -16,6 +16,39 @@ def process_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
     df.columns = [col.lower().strip() for col in df.columns]
 
+    # Show all columns for debugging
+    st.write("Columns in uploaded CSV:", df.columns.tolist())
+
+    # Try to find the right order amount column (column S)
+    order_amt_col = None
+    possible_names = [
+        "order_amt", "order amount", "order_amnt", "orderamount",
+        "order_amnt", "order_amnt_", "order_amnt1", "order_amount"
+    ]
+    # If you know the exact name, put it first in possible_names!
+
+    for name in possible_names:
+        if name in df.columns:
+            order_amt_col = name
+            break
+
+    # If not found, pick the 19th column (S is the 19th column, index 18)
+    if not order_amt_col:
+        order_amt_col = df.columns[18]  # fallback
+
+    st.write(f"Using '{order_amt_col}' as the order amount column.")
+
+    df[order_amt_col] = pd.to_numeric(df[order_amt_col], errors='coerce').fillna(0)
+    df['order_amt'] = df[order_amt_col]  # Normalize to one name for rest of code
+
+    # Transaction ID
+    if 'transaction_id' in df.columns:
+        df['transaction_id'] = df['transaction_id'].astype(str).fillna('')
+    else:
+        # fallback: guess column D (index 3)
+        df['transaction_id'] = df.iloc[:, 3].astype(str).fillna('')
+
+    # Continue with your standard logic:
     BUNDLE_SKUS = {
         "chicken_bundle": 1,
         "natural_choice": 1,
@@ -29,15 +62,13 @@ def process_data(uploaded_file):
         "prime bundle", "seafood bundle"
     ]
 
+    # Clean/normalize all columns you'll use
     df['sku'] = df['sku'].astype(str).str.lower().fillna('')
     df['item_name'] = df['item_name'].astype(str).str.lower().fillna('')
     df['employee'] = df['employee'].fillna("Unknown")
     df['order'] = df['order'].fillna("Unknown")
     df['item_net_amount'] = pd.to_numeric(df['item_net_amount'], errors='coerce').fillna(0)
     df['order_amount'] = pd.to_numeric(df['order_amount'], errors='coerce').fillna(0)
-    df['order_amt'] = pd.to_numeric(df['order_amt'], errors='coerce').fillna(0)
-    df['transaction_id'] = df['transaction_id'].astype(str).fillna('')
-
     if 'order_tip_amount' in df.columns:
         df['order_tip_amount'] = pd.to_numeric(df['order_tip_amount'], errors='coerce').fillna(0)
 
@@ -89,7 +120,7 @@ if uploaded_file:
     st.success("File uploaded successfully!")
     df_summary = process_data(uploaded_file)
     if df_summary.empty:
-        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, order_amt, transaction_id, order_tip_amount")
+        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, transaction_id, order_tip_amount")
     else:
         # Format Revenue as currency for display
         df_display = df_summary.copy()
