@@ -35,20 +35,12 @@ def process_data(uploaded_file):
     df['order'] = df['order'].fillna("Unknown")
     df['item_net_amount'] = pd.to_numeric(df['item_net_amount'], errors='coerce').fillna(0)
     df['order_amount'] = pd.to_numeric(df['order_amount'], errors='coerce').fillna(0)
-
-    # Order_Tot2 revenue logic
-    if 'order_tot2' in df.columns:
-        df['order_tot2'] = pd.to_numeric(df['order_tot2'], errors='coerce').fillna(0)
-        df['revenue_amt'] = df.apply(
-            lambda row: row['order_tot2'] if row['order_tot2'] != 0 else row['order_amount'], axis=1
-        )
-    else:
-        df['revenue_amt'] = df['order_amount']
+    df['order_amt'] = pd.to_numeric(df['order_amt'], errors='coerce').fillna(0)
+    df['transaction_id'] = df['transaction_id'].astype(str).fillna('')
 
     if 'order_tip_amount' in df.columns:
         df['order_tip_amount'] = pd.to_numeric(df['order_tip_amount'], errors='coerce').fillna(0)
 
-    # Updated bundle logic to exclude freezer gift cards
     df['is_bundle'] = df.apply(
         lambda row: (
             ("freezer gift card" not in row['item_name']) and
@@ -72,7 +64,8 @@ def process_data(uploaded_file):
         extra_cases = high_value_orders.sum()
         cases_total = math.floor(bundle_items + extra_cases + kicker_by_item)
 
-        gross_revenue = emp_df.drop_duplicates('order')['revenue_amt'].sum()
+        # Only count each transaction_id's order_amt ONCE for revenue
+        gross_revenue = emp_df.drop_duplicates('transaction_id')['order_amt'].sum()
         revenue = gross_revenue
 
         summary.append({
@@ -96,7 +89,7 @@ if uploaded_file:
     st.success("File uploaded successfully!")
     df_summary = process_data(uploaded_file)
     if df_summary.empty:
-        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, order_tot2, order_tip_amount")
+        st.warning("No data found! Check your CSV column headers. Required: employee, sku, item_name, order, item_net_amount, order_amount, order_amt, transaction_id, order_tip_amount")
     else:
         # Format Revenue as currency for display
         df_display = df_summary.copy()
